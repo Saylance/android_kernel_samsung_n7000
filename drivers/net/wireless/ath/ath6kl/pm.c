@@ -15,35 +15,28 @@
  */
 
 #include "core.h"
+#include "debug.h"
 
-static bool ath6kl_parse_event_pkt_for_wake_lock(struct sk_buff *skb)
+static bool ath6kl_parse_event_pkt_for_wake_lock(struct ath6kl *ar,
+						 struct sk_buff *skb)
 {
 	u16 cmd_id;
-	bool need_wake = false;
 
 	if (skb->len < sizeof(u16))
-		return need_wake;
+		return false;
 
-	 cmd_id = *(const u16 *) skb->data;
-	 cmd_id = le16_to_cpu(cmd_id);
+	cmd_id = *(const u16 *) skb->data;
+	if (le16_to_cpu(cmd_id) == WMI_CONNECT_EVENTID)
+		return true;
 
-	 switch (cmd_id) {
-	 case WMI_CONNECT_EVENTID:
-		need_wake = true;
-		break;
-	 default:
-		/* Don't wake lock the system for other events */
-		break;
-	 }
-
-	 return need_wake;
+	/* Don't wake lock the system for other events */
+	return false;
 }
 
 static bool ath6kl_parse_ip_pkt_for_wake_lock(struct sk_buff *skb)
 {
 	const u8 ipsec_keepalve[] = { 0x11, 0x94, 0x11, 0x94, 0x00,
 				      0x09, 0x00, 0x00, 0xff };
-	bool need_wake = true;
 	u16 size;
 	u8 *udp;
 	u8 ihl;
@@ -68,11 +61,11 @@ static bool ath6kl_parse_ip_pkt_for_wake_lock(struct sk_buff *skb)
 			 *
 			 * IPSec over UDP NAT keepalive packet. Just ignore
 			 */
-			need_wake = false;
+			return false;
 		}
 	}
 
-	return need_wake;
+	return true;
 }
 
 static bool ath6kl_parse_data_pkt_for_wake_lock(struct ath6kl *ar,
@@ -81,28 +74,25 @@ static bool ath6kl_parse_data_pkt_for_wake_lock(struct ath6kl *ar,
 	struct net_device *ndev;
 	struct ath6kl_vif *vif;
 	struct ethhdr *hdr;
-	bool need_wake = false;
 	u16 dst_port;
 
 	vif = ath6kl_vif_first(ar);
 	if (!vif)
-		return need_wake;
+		return false;
 
 	if (skb->len < sizeof(struct ethhdr))
-		return need_wake;
+		return false;
 
 	hdr = (struct ethhdr *) skb->data;
 
 	if (!is_multicast_ether_addr(hdr->h_dest)) {
 		switch (ntohs(hdr->h_proto)) {
 		case 0x0800: /* IP */
-			need_wake = ath6kl_parse_ip_pkt_for_wake_lock(skb);
-			break;
+			return ath6kl_parse_ip_pkt_for_wake_lock(skb);
 		case 0x888e: /* EAPOL */
 		case 0x88c7: /* RSN_PREAUTH */
 		case 0x88b4: /* WAPI */
-			need_wake = true;
-			break;
+			return true;
 		default:
 			break;
 		}
@@ -114,25 +104,24 @@ static bool ath6kl_parse_data_pkt_for_wake_lock(struct ath6kl *ar,
 				(vif->nw_type == AP_NETWORK ||
 				(ndev->flags & IFF_ALLMULTI ||
 				ndev->flags & IFF_MULTICAST)))
-					need_wake = true;
+					return true;
 		}
 	} else if (vif->nw_type == AP_NETWORK) {
 		switch (ntohs(hdr->h_proto)) {
+		case 0x0806:
+			return true;
 		case 0x0800: /* IP */
 			if (skb->len >= 14 + 20 + 2) {
 				dst_port = *(u16 *)(skb->data + 14 + 20);
 				/* dhcp req */
-				need_wake = (ntohs(dst_port) == 0x43);
+				return (ntohs(dst_port) == 0x43);
 			}
-			break;
-		case 0x0806:
-			need_wake = true;
 		default:
 			break;
 		}
 	}
 
-	return need_wake;
+	return false;
 }
 
 void ath6kl_config_suspend_wake_lock(struct ath6kl *ar, struct sk_buff *skb,
@@ -140,7 +129,7 @@ void ath6kl_config_suspend_wake_lock(struct ath6kl *ar, struct sk_buff *skb,
 {
 	struct ath6kl_vif *vif;
 #ifdef CONFIG_HAS_WAKELOCK
-	unsigned long wl_timeout = HZ;
+	unsigned long wl_timeout = 5;
 #endif
 	bool need_wake = false;
 
@@ -155,26 +144,24 @@ void ath6kl_config_suspend_wake_lock(struct ath6kl *ar, struct sk_buff *skb,
 			skb && test_bit(CONNECTED, &vif->flags)) {
 		if (is_event_pkt) { /* Ctrl pkt received */
 			need_wake =
-				ath6kl_parse_event_pkt_for_wake_lock(skb);
-			if (need_wake) {
+				ath6kl_parse_event_pkt_for_wake_lock(ar, skb);
 #ifdef CONFIG_HAS_WAKELOCK
+			if (need_wake)
 				wl_timeout = 3 * HZ;
 #endif
-			}
 		} else /* Data pkt received */
-			need_wake = ath6kl_parse_data_pkt_for_wake_lock(ar,
-									skb);
+			need_wake =
+				ath6kl_parse_data_pkt_for_wake_lock(ar, skb);
 	}
 
-	if (need_wake) {
 #ifdef CONFIG_HAS_WAKELOCK
+	if (need_wake)
 		/*
 		 * Keep the host wake up if there is any event
 		 * and pkt comming in.
 		 */
 		wake_lock_timeout(&ar->wake_lock, wl_timeout);
 #endif
-	}
 }
 #ifdef CONFIG_HAS_WAKELOCK
 void ath6kl_p2p_acquire_wakelock(struct ath6kl *ar, int wl_timeout)
@@ -191,6 +178,7 @@ void ath6kl_p2p_release_wakelock(struct ath6kl *ar)
 	return;
 }
 #endif
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void ath6kl_early_suspend(struct early_suspend *handler)
 {

@@ -62,10 +62,6 @@
 #include <plat/s5p-sysmmu.h>
 #endif
 
-#if defined(CONFIG_CPU_EXYNOS4210)
-#define FEATURE_VSYNC_EVENT_VIA_SYSFS
-#endif
-
 struct s3cfb_fimd_desc		*fbfimd;
 
 struct s3cfb_global *get_fimd_global(int id)
@@ -111,11 +107,6 @@ static void s3cfb_deactivate_vsync(struct s3cfb_global *fbdev)
 	int new_refcount;
 
 	mutex_lock(&fbdev->vsync_info.irq_lock);
-
-	if (fbdev->vsync_info.irq_refcount <= 0) {
-		mutex_unlock(&fbdev->vsync_info.irq_lock);
-		return;
-	}
 
 	new_refcount = --fbdev->vsync_info.irq_refcount;
 	WARN_ON(new_refcount < 0);
@@ -259,11 +250,6 @@ void read_lcd_register(void)
 
 	fbdev[0] = fbfimd->fbdev[0];
 
-	if (fbdev[0]->system_state == POWER_OFF) {
-		dev_err(fbdev[0]->dev, "%s::system_state is POWER_OFF\n", __func__);
-		return;
-	}
-
 	/*11C00000 ~ 11C00260*/
 	reg = readl(fbdev[0]->regs_org + S3C_VIDCON1);
 	dev_info(fbdev[0]->dev, "11C000%02X| %08X", S3C_VIDCON1, reg);
@@ -401,6 +387,18 @@ static ssize_t fimd_dump_show(struct device *dev,
 }
 static DEVICE_ATTR(fimd_dump, 0444, fimd_dump_show, NULL);
 
+#ifdef CONFIG_FB_S5P_VSYNC_SYSFS
+static ssize_t s3c_fb_vsync_time(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	struct s3cfb_global *fbdev = fbfimd->fbdev[0];
+
+	return snprintf(buf, PAGE_SIZE, "%llu", ktime_to_ns(fbdev->vsync_info.timestamp));
+}
+
+static DEVICE_ATTR(vsync_time, S_IRUGO, s3c_fb_vsync_time, NULL);
+#endif
+
 #if 0 /* def CONFIG_FB_S5P_MIPI_DSIM */
 void s3cfb_display_on_remote(void)
 {
@@ -429,21 +427,6 @@ void s3cfb_trigger(void)
 EXPORT_SYMBOL(s3cfb_trigger);
 #endif
 
-#ifdef FEATURE_VSYNC_EVENT_VIA_SYSFS
-static ssize_t vsync_event_show(struct device *dev,
-	struct device_attribute *attr, char *buf)
-{
-	struct s3cfb_global *fbdev[1];
-	fbdev[0] = fbfimd->fbdev[0];
-
-	return snprintf(buf, PAGE_SIZE, "VSYNC=%llu",
-			((fbdev[0] != 0) ?
-			ktime_to_ns(fbdev[0]->vsync_info.timestamp) : 0));
-}
-
-static DEVICE_ATTR(vsync_event, 0444, vsync_event_show, NULL);
-#endif
-
 #if defined(CONFIG_FB_S5P_VSYNC_THREAD)
 static int s3cfb_wait_for_vsync_thread(void *data)
 {
@@ -459,11 +442,7 @@ static int s3cfb_wait_for_vsync_thread(void *data)
 						msecs_to_jiffies(VSYNC_TIMEOUT_MSEC));
 
 		if (ret > 0) {
-#ifdef FEATURE_VSYNC_EVENT_VIA_SYSFS
-			struct s3c_platform_fb *pdata = to_fb_plat(fbdev->dev);
-			sysfs_notify(&fbdev->fb[pdata->default_win]->dev->kobj,
-				NULL, "vsync_event");
-#else
+#if defined(CONFIG_FB_S5P_VSYNC_SEND_UEVENTS)
 			char *envp[2];
 			char buf[64];
 			snprintf(buf, sizeof(buf), "VSYNC=%llu",
@@ -472,6 +451,9 @@ static int s3cfb_wait_for_vsync_thread(void *data)
 			envp[1] = NULL;
 			kobject_uevent_env(&fbdev->dev->kobj, KOBJ_CHANGE,
 							envp);
+#endif
+#if defined(CONFIG_FB_S5P_VSYNC_SYSFS)
+			sysfs_notify(&fbdev->dev->kobj, NULL, "vsync_time");
 #endif
 		}
 	}
@@ -706,9 +688,8 @@ static int s3cfb_probe(struct platform_device *pdev)
 		if (ret < 0)
 			dev_err(fbdev[0]->dev, "failed to add sysfs entries\n");
 
-#ifdef FEATURE_VSYNC_EVENT_VIA_SYSFS
-		ret = device_create_file(fbdev[i]->fb[pdata->default_win]->dev,
-					&dev_attr_vsync_event);
+#ifdef CONFIG_FB_S5P_VSYNC_SYSFS
+		ret = device_create_file(fbdev[i]->dev, &dev_attr_vsync_time);
 		if (ret < 0)
 			dev_err(fbdev[0]->dev, "failed to add sysfs entries\n");
 #endif

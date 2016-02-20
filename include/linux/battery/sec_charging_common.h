@@ -33,24 +33,13 @@
 #include <linux/device.h>
 
 /* definitions */
-#define	SEC_SIZEOF_POWER_SUPPLY_TYPE	11
+#define	SEC_SIZEOF_POWER_SUPPLY_TYPE	11	/* P10 */
 
 enum sec_battery_voltage_mode {
 	/* average voltage */
 	SEC_BATTEY_VOLTAGE_AVERAGE = 0,
 	/* open circuit voltage */
 	SEC_BATTEY_VOLTAGE_OCV,
-};
-
-enum sec_battery_capacity_mode {
-	/* designed capacity */
-	SEC_BATTEY_CAPACITY_DESIGNED = 0,
-	/* absolute capacity by fuel gauge */
-	SEC_BATTEY_CAPACITY_ABSOLUTE,
-	/* temperary capacity in the time */
-	SEC_BATTEY_CAPACITY_TEMPERARY,
-	/* current capacity now */
-	SEC_BATTEY_CAPACITY_CURRENT,
 };
 
 /* ADC type */
@@ -107,7 +96,7 @@ enum sec_battery_monitor_polling {
 	SEC_BATTERY_MONITOR_WORKQUEUE,
 	/* alarm polling */
 	SEC_BATTERY_MONITOR_ALARM,
-	/* timer polling (NOT USE) */
+	/* timer polling */
 	SEC_BATTERY_MONITOR_TIMER,
 };
 #define sec_battery_monitor_polling_t \
@@ -123,11 +112,11 @@ enum sec_battery_full_charged {
 	SEC_BATTERY_FULLCHARGED_FG_CURRENT,
 	/* fuel gauge current check and dual check (1st, 2nd top-off) */
 	SEC_BATTERY_FULLCHARGED_FG_CURRENT_DUAL,
-	/* charger GPIO, NO additional full condition */
+	/* charger GPIO */
 	SEC_BATTERY_FULLCHARGED_CHGGPIO,
-	/* charger interrupt, NO additional full condition */
+	/* charger interrupt */
 	SEC_BATTERY_FULLCHARGED_CHGINT,
-	/* charger power supply property, NO additional full condition */
+	/* charger power supply property */
 	SEC_BATTERY_FULLCHARGED_CHGPSY,
 };
 #define sec_battery_full_charged_t \
@@ -136,29 +125,21 @@ enum sec_battery_full_charged {
 /* full check condition type (can be used overlapped) */
 #define sec_battery_full_condition_t unsigned int
 /* SEC_BATTERY_FULL_CONDITION_NOTIMEFULL
-  * full-charged by absolute-timer only in high voltage
+  * no full-charged by absolute-timer
   */
-#define SEC_BATTERY_FULL_CONDITION_NOTIMEFULL	1
-/* SEC_BATTERY_FULL_CONDITION_SLEEPINFULL
-  * change polling time as sleep polling time even in full-charged
-  */
-#define SEC_BATTERY_FULL_CONDITION_SLEEPINFULL	2
+#define SEC_BATTERY_FULL_CONDITION_NOTIMEFULL		1
 /* SEC_BATTERY_FULL_CONDITION_SOC
   * use capacity for full-charged check
   */
-#define SEC_BATTERY_FULL_CONDITION_SOC		4
-/* SEC_BATTERY_FULL_CONDITION_VCELL
-  * use VCELL for full-charged check
-  */
-#define SEC_BATTERY_FULL_CONDITION_VCELL	8
+#define SEC_BATTERY_FULL_CONDITION_SOC		2
 /* SEC_BATTERY_FULL_CONDITION_AVGVCELL
   * use average VCELL for full-charged check
   */
-#define SEC_BATTERY_FULL_CONDITION_AVGVCELL	16
+#define SEC_BATTERY_FULL_CONDITION_AVGVCELL		4
 /* SEC_BATTERY_FULL_CONDITION_OCV
   * use OCV for full-charged check
   */
-#define SEC_BATTERY_FULL_CONDITION_OCV		32
+#define SEC_BATTERY_FULL_CONDITION_OCV		8
 
 /* recharge check condition type (can be used overlapped) */
 #define sec_battery_recharge_condition_t unsigned int
@@ -236,7 +217,7 @@ enum sec_battery_temp_check {
 #define sec_battery_cable_check_t unsigned int
 /* SEC_BATTERY_CABLE_CHECK_NOUSBCHARGE
   * for USB cable in tablet model,
-  * status is stuck into discharging,
+  * status is stick to discharging,
   * but internal charging logic is working
   */
 #define SEC_BATTERY_CABLE_CHECK_NOUSBCHARGE		1
@@ -253,24 +234,17 @@ enum sec_battery_temp_check {
   */
 #define SEC_BATTERY_CABLE_CHECK_POLLING			8
 
-/* check cable source (can be used overlapped) */
-#define sec_battery_cable_source_t unsigned int
-/* SEC_BATTERY_CABLE_SOURCE_EXTERNAL
- * already given by external argument
- */
-#define	SEC_BATTERY_CABLE_SOURCE_EXTERNAL	1
-/* SEC_BATTERY_CABLE_SOURCE_CALLBACK
- * by callback (MUIC, USB switch)
- */
-#define	SEC_BATTERY_CABLE_SOURCE_CALLBACK	2
-/* SEC_BATTERY_CABLE_SOURCE_ADC
- * by ADC
- */
-#define	SEC_BATTERY_CABLE_SOURCE_ADC		4
-/* SEC_BATTERY_CABLE_SOURCE_EXTENDED
- * use extended cable type
- */
-#define SEC_BATTERY_CABLE_SOURCE_EXTENDED	8
+/* check cable source */
+enum sec_battery_cable_source {
+	/* already given by external argument */
+	SEC_BATTERY_CABLE_SOURCE_EXTERNAL,
+	/* by callback (MUIC, USB switch) */
+	SEC_BATTERY_CABLE_SOURCE_CALLBACK,
+	/* by ADC */
+	SEC_BATTERY_CABLE_SOURCE_ADC,
+};
+#define sec_battery_cable_source_t \
+	enum sec_battery_cable_source
 
 /* capacity calculation type (can be used overlapped) */
 #define sec_fuelgauge_capacity_type_t unsigned int
@@ -287,24 +261,11 @@ enum sec_battery_temp_check {
   * rescale capacity by scaling, need min and max value for scaling
   */
 #define SEC_FUELGAUGE_CAPACITY_TYPE_SCALE	1
-/* SEC_FUELGAUGE_CAPACITY_TYPE_DYNAMIC_SCALE
-  * change only maximum capacity dynamically
-  * to keep time for every SOC unit
-  */
-#define SEC_FUELGAUGE_CAPACITY_TYPE_DYNAMIC_SCALE	2
 /* SEC_FUELGAUGE_CAPACITY_TYPE_ATOMIC
   * change capacity value by only -1 or +1
   * no sudden change of capacity
   */
-#define SEC_FUELGAUGE_CAPACITY_TYPE_ATOMIC	4
-
-/* charger function settings (can be used overlapped) */
-#define sec_charger_functions_t unsigned int
-/* SEC_CHARGER_NO_GRADUAL_CHARGING_CURRENT
- * disable gradual charging current setting
- * SUMMIT:AICL, MAXIM:regulation loop
- */
-#define SEC_CHARGER_NO_GRADUAL_CHARGING_CURRENT		1
+#define SEC_FUELGAUGE_CAPACITY_TYPE_ATOMIC	2
 
 /**
  * struct sec_bat_adc_table_data - adc to temperature table for sec battery
@@ -343,14 +304,10 @@ struct sec_battery_platform_data {
 	bool (*fg_gpio_init)(void);
 	bool (*chg_gpio_init)(void);
 	bool (*is_lpm)(void);
-	int jig_irq;
-	unsigned long jig_irq_attr;
 	bool (*check_jig_status) (void);
-	bool (*is_interrupt_cable_check_possible)(int);
 	int (*check_cable_callback)(void);
-	int (*get_cable_from_extended_cable_type)(int);
-	bool (*cable_switch_check)(void);
-	bool (*cable_switch_normal)(void);
+	void (*cable_switch_check)(void);
+	void (*cable_switch_normal)(void);
 	bool (*check_cable_result_callback)(int);
 	bool (*check_battery_callback)(void);
 	bool (*check_battery_result_callback)(void);
@@ -449,11 +406,9 @@ struct sec_battery_platform_data {
 	int chg_polarity_full_check;
 	sec_battery_full_condition_t full_condition_type;
 	unsigned int full_condition_soc;
-	unsigned int full_condition_vcell;
 	unsigned int full_condition_avgvcell;
 	unsigned int full_condition_ocv;
 
-	unsigned int recharge_check_count;
 	sec_battery_recharge_condition_t recharge_condition_type;
 	unsigned int recharge_condition_soc;
 	unsigned int recharge_condition_avgvcell;
@@ -479,7 +434,6 @@ struct sec_battery_platform_data {
 	 * only for scaling
 	 */
 	unsigned int capacity_max;
-	unsigned int capacity_max_margin;
 	unsigned int capacity_min;
 
 	/* charger */
@@ -497,7 +451,6 @@ struct sec_battery_platform_data {
 	unsigned long chg_irq_attr;
 	/* float voltage (mV) */
 	int chg_float_voltage;
-	sec_charger_functions_t chg_functions_setting;
 
 	/* ADC setting */
 	unsigned int adc_check_count;
@@ -546,12 +499,5 @@ static inline struct power_supply *get_power_supply_by_name(char *name)
 #define get_battery_data(driver)	\
 	(((struct battery_data_t *)(driver)->pdata->battery_data)	\
 	[(driver)->pdata->battery_type])
-
-#define GET_MAIN_CABLE_TYPE(extended)	\
-	((extended >> ONLINE_TYPE_MAIN_SHIFT)&0xf)
-#define GET_SUB_CABLE_TYPE(extended)	\
-	((extended >> ONLINE_TYPE_SUB_SHIFT)&0xf)
-#define GET_POWER_CABLE_TYPE(extended)	\
-	((extended >> ONLINE_TYPE_PWR_SHIFT)&0xf)
 
 #endif /* __SEC_CHARGING_COMMON_H */

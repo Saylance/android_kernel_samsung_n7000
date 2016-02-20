@@ -772,32 +772,6 @@ static int fg_read_vfocv(struct i2c_client *client)
 	return vfocv;
 }
 
-static int fg_read_avg_vcell(struct i2c_client *client)
-{
-	u8 data[2];
-	u32 avg_vcell = 0;
-	u16 w_data;
-	u32 temp;
-	u32 temp2;
-
-	if (fg_i2c_read(client, AVR_VCELL_REG, data, 2) < 0) {
-		dev_err(&client->dev,
-			"%s: Failed to read AVG_VCELL\n", __func__);
-		return -1;
-	}
-
-	w_data = (data[1]<<8) | data[0];
-
-	temp = (w_data & 0xFFF) * 78125;
-	avg_vcell = temp / 1000000;
-
-	temp = ((w_data & 0xF000) >> 4) * 78125;
-	temp2 = temp / 1000000;
-	avg_vcell += (temp2 << 4);
-
-	return avg_vcell;
-}
-
 static int fg_check_battery_present(struct i2c_client *client)
 {
 	u8 status_data[2];
@@ -840,7 +814,6 @@ static int fg_read_temp(struct i2c_client *client)
 		if (data[1]&(0x1 << 7)) {
 			temper = ((~(data[1]))&0xFF)+1;
 			temper *= (-1000);
-			temper -= ((~((int)data[0]))+1) * 39 / 10;
 		} else {
 			temper = data[1] & 0x7f;
 			temper *= 1000;
@@ -928,69 +901,6 @@ static int fg_read_soc(struct i2c_client *client)
 			__func__, soc, (data[1]<<8) | data[0]);
 
 	return min(soc, 1000);
-}
-
-static int fg_read_fullcap(struct i2c_client *client)
-{
-	u8 data[2];
-	int ret;
-
-	if (fg_i2c_read(client, FULLCAP_REG, data, 2) < 0) {
-		dev_err(&client->dev, "%s: Failed to read FULLCAP\n", __func__);
-		return -1;
-	}
-
-	ret = (data[1] << 8) + data[0];
-
-	return ret;
-}
-
-static int fg_read_mixcap(struct i2c_client *client)
-{
-	u8 data[2];
-	int ret;
-
-	if (fg_i2c_read(client, REMCAP_MIX_REG, data, 2) < 0) {
-		dev_err(&client->dev, "%s: Failed to read REMCAP_MIX_REG\n",
-			__func__);
-		return -1;
-	}
-
-	ret = (data[1] << 8) + data[0];
-
-	return ret;
-}
-
-static int fg_read_avcap(struct i2c_client *client)
-{
-	u8 data[2];
-	int ret;
-
-	if (fg_i2c_read(client, REMCAP_AV_REG, data, 2) < 0) {
-		dev_err(&client->dev, "%s: Failed to read REMCAP_AV_REG\n",
-			__func__);
-		return -1;
-	}
-
-	ret = (data[1] << 8) + data[0];
-
-	return ret;
-}
-
-static int fg_read_repcap(struct i2c_client *client)
-{
-	u8 data[2];
-	int ret;
-
-	if (fg_i2c_read(client, REMCAP_REP_REG, data, 2) < 0) {
-		dev_err(&client->dev, "%s: Failed to read REMCAP_REP_REG\n",
-			__func__);
-		return -1;
-	}
-
-	ret = (data[1] << 8) + data[0];
-
-	return ret;
 }
 
 static int fg_read_current(struct i2c_client *client)
@@ -1326,22 +1236,6 @@ int get_fuelgauge_value(struct i2c_client *client, int data)
 
 	case FG_AV_SOC:
 		ret = fg_read_avsoc(client);
-		break;
-
-	case FG_FULLCAP:
-		ret = fg_read_fullcap(client);
-		break;
-
-	case FG_MIXCAP:
-		ret = fg_read_mixcap(client);
-		break;
-
-	case FG_AVCAP:
-		ret = fg_read_avcap(client);
-		break;
-
-	case FG_REPCAP:
-		ret = fg_read_repcap(client);
 		break;
 
 	default:
@@ -1773,34 +1667,37 @@ int low_batt_compensation(struct i2c_client *client,
 			sizeof(get_battery_data(fuelgauge).low_battery_table) /
 			(sizeof(s16)*TABLE_MAX);
 
-		for (i = 1; i < CURRENT_RANGE_MAX_NUM; i++) {
-			if ((fg_min_current >= get_battery_data(fuelgauge).
-				low_battery_table[i-1][RANGE]) &&
-				(fg_min_current < get_battery_data(fuelgauge).
-				low_battery_table[i][RANGE])) {
-				if (fg_soc >= 2 && fg_vcell <
-					get_low_batt_threshold(client,
-					i, fg_min_current, 1)) {
-					add_low_batt_comp_cnt(
-						client, i, 1);
-				} else {
-					reset_low_batt_comp_cnt(client);
-				}
+	for (i = 1; i < CURRENT_RANGE_MAX_NUM; i++) {
+		if ((fg_min_current >= get_battery_data(fuelgauge).
+			low_battery_table[i-1][RANGE]) &&
+			(fg_min_current < get_battery_data(fuelgauge).
+			low_battery_table[i][RANGE])) {
+			if (fg_soc >= 2 && fg_vcell <
+				get_low_batt_threshold(client,
+				i, fg_min_current, 1)) {
+				add_low_batt_comp_cnt(
+					client, i, 1);
+			} else {
+				reset_low_batt_comp_cnt(client);
 			}
 		}
+	}
 
 		if (check_low_batt_comp_condition(client, &new_level)) {
 			fg_low_batt_compensation(client, new_level);
 			reset_low_batt_comp_cnt(client);
-
-			/* Do not update soc right after
-			 * low battery compensation
-			 * to prevent from powering-off suddenly
-			 */
-			dev_info(&client->dev,
-				"%s: SOC is set to %d by low compensation!!\n",
-				__func__, fg_read_soc(client));
 		}
+
+		/* if compensation finished, then read SOC again!!*/
+		dev_info(&client->dev,
+			"%s: MIN_CURRENT(%d), AVG_CURRENT(%d), CURRENT(%d), SOC(%d), VCELL(%d)\n",
+			__func__, fg_min_current, fg_avg_current,
+			fg_current, fg_soc, fg_vcell);
+		/* Do not update soc right after low battery compensation */
+		/* to prevent from powering-off suddenly */
+		dev_info(&client->dev,
+			"%s: SOC is set to %d\n",
+			__func__, fg_read_soc(client));
 	}
 
 	/* Prevent power off over 3500mV */
@@ -2153,12 +2050,11 @@ bool sec_hal_fg_get_property(struct i2c_client *client,
 		/* Additional Voltage Information (mV) */
 	case POWER_SUPPLY_PROP_VOLTAGE_AVG:
 		switch (val->intval) {
+		case SEC_BATTEY_VOLTAGE_AVERAGE:
+			val->intval = 0;
+			break;
 		case SEC_BATTEY_VOLTAGE_OCV:
 			val->intval = fg_read_vfocv(client);
-			break;
-		case SEC_BATTEY_VOLTAGE_AVERAGE:
-		default:
-			val->intval = fg_read_avg_vcell(client);
 			break;
 		}
 		break;
@@ -2169,23 +2065,6 @@ bool sec_hal_fg_get_property(struct i2c_client *client,
 		/* Average Current (mA) */
 	case POWER_SUPPLY_PROP_CURRENT_AVG:
 		val->intval = get_fuelgauge_value(client, FG_CURRENT_AVG);
-		break;
-		/* Full Capacity */
-	case POWER_SUPPLY_PROP_ENERGY_NOW:
-		switch (val->intval) {
-		case SEC_BATTEY_CAPACITY_DESIGNED:
-			val->intval = get_fuelgauge_value(client, FG_FULLCAP);
-			break;
-		case SEC_BATTEY_CAPACITY_ABSOLUTE:
-			val->intval = get_fuelgauge_value(client, FG_MIXCAP);
-			break;
-		case SEC_BATTEY_CAPACITY_TEMPERARY:
-			val->intval = get_fuelgauge_value(client, FG_AVCAP);
-			break;
-		case SEC_BATTEY_CAPACITY_CURRENT:
-			val->intval = get_fuelgauge_value(client, FG_REPCAP);
-			break;
-		}
 		break;
 		/* SOC (%) */
 	case POWER_SUPPLY_PROP_CAPACITY:
@@ -2283,21 +2162,19 @@ ssize_t sec_hal_fg_store_attrs(struct device *dev,
 	case FG_REG:
 		if (sscanf(buf, "%x\n", &x) == 1) {
 			fg->reg_addr = x;
-			if (fg_i2c_read(fg->client,
-				fg->reg_addr, fg->reg_data, 2) < 0) {
-				dev_err(dev, "%s: Error in read\n", __func__);
-				break;
-			}
-			dev_dbg(dev,
+			fg_i2c_read(fg->client,
+				fg->reg_addr, fg->reg_data, 2);
+			dev_dbg(&fg->client->dev,
 				"%s: (read) addr = 0x%x, data = 0x%02x%02x\n",
-				__func__, fg->reg_addr,
-				fg->reg_data[1], fg->reg_data[0]);
+				 __func__, fg->reg_addr,
+				 fg->reg_data[1], fg->reg_data[0]);
 			ret = count;
 		}
 		break;
 	case FG_DATA:
 		if (sscanf(buf, "%x\n", &x) == 1) {
-			dev_dbg(dev, "%s: (write) addr = 0x%x, data = 0x%04x\n",
+			dev_dbg(&fg->client->dev,
+				"%s: (write) addr = 0x%x, data = 0x%02x%02x\n",
 				__func__, fg->reg_addr, x);
 			fg_write_and_verify_register(fg->client,
 				fg->reg_addr, (u16)x);

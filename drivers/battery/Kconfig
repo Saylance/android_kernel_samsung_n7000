@@ -165,14 +165,4 @@ config CHARGER_BQ24191
 	help
 	 Say Y to include support for TI BQ24191 charger driver.
 
-config CHARGER_NCP1851
-	tristate "NCP1851 charger driver"
-	default n
-	depends on BATTERY_SAMSUNG_P1X
-	help
-	 Say Y to include support
-	 for NCP1851 charger driver.
-	 This driver source code implemented
-	 all functions for NCP1851 charger.
-
 endif # POWER_SUPPLY

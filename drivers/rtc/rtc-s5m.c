@@ -25,6 +25,7 @@
 #include <linux/reboot.h>
 #endif
 
+
 #if defined(CONFIG_RTC_POWER_OFF)
 extern bool fake_shut_down;
 #endif
@@ -44,7 +45,7 @@ struct s5m_rtc_info {
 #endif
 	int device_type;
 	int rtc_24hr_mode;
-	struct s5m_wtsr_smpl *wtsr_smpl;
+	bool wtsr_smpl;
 	bool alarm_enabled;
 };
 
@@ -217,7 +218,7 @@ static int s5m_rtc_set_time(struct device *dev, struct rtc_time *tm)
 {
 	struct s5m_rtc_info *info = dev_get_drvdata(dev);
 	u8 data[8];
-	int ret, i;
+	int ret;
 
 	switch (info->device_type) {
 	case S5M8763X:
@@ -240,8 +241,8 @@ static int s5m_rtc_set_time(struct device *dev, struct rtc_time *tm)
         if (ret < 0)
 		goto out;
 
-	for (i = 0; i < 2; i++)
-		ret = s5m8767_rtc_set_time_reg(info);
+	ret = s5m8767_rtc_set_time_reg(info);
+
 out:
 	mutex_unlock(&info->lock);
 	return ret;
@@ -977,7 +978,7 @@ static int __devinit s5m_rtc_probe(struct platform_device *pdev)
 	info->s5m87xx = s5m87xx;
 	info->rtc = s5m87xx->rtc;
 	info->device_type = s5m87xx->device_type;
-	info->wtsr_smpl = pdata->wtsr_smpl;
+	info->wtsr_smpl = s5m87xx->wtsr_smpl;
 
 	switch (pdata->device_type) {
 	case S5M8763X:
@@ -1005,8 +1006,8 @@ static int __devinit s5m_rtc_probe(struct platform_device *pdev)
 	ret = s5m8767_rtc_init_reg(info);
 
 	if (info->wtsr_smpl) {
-		s5m_rtc_enable_wtsr(info, info->wtsr_smpl->wtsr_en);
-		s5m_rtc_enable_smpl(info, info->wtsr_smpl->smpl_en);
+		s5m_rtc_enable_wtsr(info, true);
+		s5m_rtc_enable_smpl(info, true);
 	}
 
 	device_init_wakeup(&pdev->dev, 1);
@@ -1065,7 +1066,7 @@ static void s5m_rtc_shutdown(struct platform_device *pdev)
 	struct s5m_rtc_info *info = platform_get_drvdata(pdev);
 	int i;
 	u8 val = 0;
-	if (info->wtsr_smpl->wtsr_en) {
+	if (info->wtsr_smpl) {
 		for (i = 0; i < 3; i++) {
 			s5m_rtc_enable_wtsr(info, false);
 			s5m_reg_read(info->rtc, S5M87XX_WTSR_SMPL_CNTL, &val);

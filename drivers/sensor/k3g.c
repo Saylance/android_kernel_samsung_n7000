@@ -229,12 +229,11 @@ static int k3g_read_gyro_values(struct i2c_client *client,
 	err = i2c_transfer(client->adapter, msg, 2);
 	if (err != 2)
 		return (err < 0) ? err : -EIO;
-	//BST-Liu Zhijun modfiy for PLM issue PLM_P121221-0835 
-	
+
 	data->y = (k3g_data->fifo_data[1] << 8) | k3g_data->fifo_data[0];
 	data->z = (k3g_data->fifo_data[3] << 8) | k3g_data->fifo_data[2];
 	data->x = (k3g_data->fifo_data[5] << 8) | k3g_data->fifo_data[4];
-	
+
 	return 0;
 }
 
@@ -260,19 +259,9 @@ static int k3g_report_gyro_values(struct k3g_data *k3g_data)
 		return k3g_restart_fifo(k3g_data);
 	}
 
-	//BST-Liu Zhijun modfiy for PLM issue PLM_P121221-0835 
-
-	#if defined(CONFIG_MACH_U1_NA_SPR)
-	input_report_rel(k3g_data->input_dev, REL_RX, -data.x);
-	input_report_rel(k3g_data->input_dev, REL_RY, -data.y);
-	#else
 	input_report_rel(k3g_data->input_dev, REL_RX, data.x);
 	input_report_rel(k3g_data->input_dev, REL_RY, data.y);
-	#endif
-	//BST-Liu Zhijun modfiy for PLM issue PLM_P121221-0835 
-	
 	input_report_rel(k3g_data->input_dev, REL_RZ, data.z);
-	
 	input_sync(k3g_data->input_dev);
 
 	return res;

@@ -15,10 +15,6 @@
 #include "midas.h"
 #include <plat/udc-hs.h>
 
-#ifdef	CONFIG_MACH_M3_USA_TMO
-#define	CONFIG_USE_HPD_EN
-#endif
-
 /*Event of receiving*/
 #define PSY_BAT_NAME "battery"
 /*Event of sending*/
@@ -27,7 +23,6 @@
 #ifdef CONFIG_SAMSUNG_MHL
 static void sii9234_cfg_gpio(void)
 {
-	int ret;
 	printk(KERN_INFO "%s()\n", __func__);
 
 	/* AP_MHL_SDA */
@@ -43,11 +38,7 @@ static void sii9234_cfg_gpio(void)
 	irq_set_irq_type(MHL_WAKEUP_IRQ, IRQ_TYPE_EDGE_RISING);
 	s3c_gpio_setpull(GPIO_MHL_WAKE_UP, S3C_GPIO_PULL_DOWN);
 
-	ret = gpio_request(GPIO_MHL_INT, "MHL_INT");
-	if (unlikely(ret)) {
-		pr_err("[ERROR] %s(): failed on gpio_request()!\n", __func__);
-		return;
-	}
+	gpio_request(GPIO_MHL_INT, "MHL_INT");
 	s5p_register_gpio_interrupt(GPIO_MHL_INT);
 	s3c_gpio_setpull(GPIO_MHL_INT, S3C_GPIO_PULL_DOWN);
 	irq_set_irq_type(MHL_INT_IRQ, IRQ_TYPE_EDGE_RISING);
@@ -63,18 +54,11 @@ static void sii9234_cfg_gpio(void)
 
 #if !defined(CONFIG_MACH_C1_KOR_LGT) && !defined(CONFIG_SAMSUNG_MHL_9290)
 #if !defined(CONFIG_MACH_P4NOTE) && !defined(CONFIG_MACH_T0) && \
-	!defined(CONFIG_MACH_M3) && !defined(CONFIG_MACH_SLP_T0_LTE) && \
-	!defined(CONFIG_MACH_KONA)
+	!defined(CONFIG_MACH_M3) && !defined(CONFIG_MACH_SLP_T0_LTE)
 	s3c_gpio_cfgpin(GPIO_MHL_SEL, S3C_GPIO_OUTPUT);
 	s3c_gpio_setpull(GPIO_MHL_SEL, S3C_GPIO_PULL_NONE);
 	gpio_set_value(GPIO_MHL_SEL, GPIO_LEVEL_LOW);
 #endif
-#endif
-
-#ifdef	CONFIG_USE_HPD_EN
-	s3c_gpio_cfgpin(GPIO_HDMI_HPD_EN, S3C_GPIO_OUTPUT);
-	s3c_gpio_setpull(GPIO_HDMI_HPD_EN, S3C_GPIO_PULL_NONE);
-	gpio_set_value(GPIO_HDMI_HPD_EN, GPIO_LEVEL_LOW);
 #endif
 }
 
@@ -91,10 +75,6 @@ static void sii9234_power_onoff(bool on)
 		s3c_gpio_setpull(GPIO_MHL_SCL_1_8V, S3C_GPIO_PULL_DOWN);
 		s3c_gpio_setpull(GPIO_MHL_SCL_1_8V, S3C_GPIO_PULL_NONE);
 
-#ifdef	CONFIG_USE_HPD_EN
-		gpio_set_value(GPIO_HDMI_HPD_EN, GPIO_LEVEL_HIGH);
-#endif
-
 		/* sii9234_unmaks_interrupt(); // - need to add */
 		/* VCC_SUB_2.0V is always on */
 	} else {
@@ -108,10 +88,6 @@ static void sii9234_power_onoff(bool on)
 		gpio_set_value(GPIO_HDMI_EN, GPIO_LEVEL_LOW);
 
 		gpio_set_value(GPIO_MHL_RST, GPIO_LEVEL_LOW);
-
-#ifdef	CONFIG_USE_HPD_EN
-		gpio_set_value(GPIO_HDMI_HPD_EN, GPIO_LEVEL_LOW);
-#endif
 	}
 }
 
@@ -205,8 +181,7 @@ static void sii9234_reset(void)
 }
 
 #ifndef CONFIG_SAMSUNG_USE_11PIN_CONNECTOR
-#if defined(CONFIG_MACH_P4NOTE) || defined(CONFIG_MACH_KONA)
-#else
+#ifndef CONFIG_MACH_P4NOTE
 static void mhl_usb_switch_control(bool on)
 {
 	printk(KERN_INFO "%s() [MHL] USB path change : %s\n",
@@ -229,7 +204,7 @@ static void mhl_usb_switch_control(bool on)
 static struct sii9234_platform_data sii9234_pdata = {
 	.init = sii9234_cfg_gpio,
 #if defined(CONFIG_SAMSUNG_USE_11PIN_CONNECTOR) || \
-		defined(CONFIG_MACH_P4NOTE) || defined(CONFIG_MACH_KONA)
+		defined(CONFIG_MACH_P4NOTE)
 	.mhl_sel = NULL,
 #else
 	.mhl_sel = mhl_usb_switch_control,
@@ -283,8 +258,7 @@ static int __init midas_mhl_init(void)
 	}
 #if defined(CONFIG_MACH_T0_EUR_OPEN) || defined(CONFIG_MACH_T0_CHN_OPEN)
 	sii9234_pdata.ddc_i2c_num = 6;
-#elif defined(CONFIG_MACH_P4NOTE) || defined(CONFIG_MACH_T0) \
-	 || defined(CONFIG_MACH_KONA)
+#elif defined(CONFIG_MACH_P4NOTE) || defined(CONFIG_MACH_T0)
 	sii9234_pdata.ddc_i2c_num = 5;
 #else
 	sii9234_pdata.ddc_i2c_num = (system_rev == 3 ? 16 : 5);

@@ -416,8 +416,8 @@ static const unsigned short tune_movie_ui[] = {
 	0x00e8,  0x00ff,	/*SCR BgYg*/
 	0x00e9,  0xff00,	/*SCR BbYb*/
 	0x00ea,  0x00ff,	/*SCR KrWr*/
-	0x00eb,  0x00f6,	/*SCR KgWg*/
-	0x00ec,  0x00e5,	/*SCR KbWb*/
+	0x00eb,  0x00fa,	/*SCR KgWg*/
+	0x00ec,  0x00f3,	/*SCR KbWb*/
 	0x0000,  0x0001,	/*BANK 1*/
 	0x001f,  0x0080,	/*CC chsel strength*/
 	0x0020,  0x0000,	/*CC lut r	 0*/
@@ -457,8 +457,8 @@ static const unsigned short tune_movie_video[] = {
 	0x00e8,  0x00ff,	/*SCR BgYg*/
 	0x00e9,  0xff00,	/*SCR BbYb*/
 	0x00ea,  0x00ff,	/*SCR KrWr*/
-	0x00eb,  0x00f6,	/*SCR KgWg*/
-	0x00ec,  0x00e5,	/*SCR KbWb*/
+	0x00eb,  0x00fa,	/*SCR KgWg*/
+	0x00ec,  0x00f3,	/*SCR KbWb*/
 	0x0000,  0x0001,	/*BANK 1*/
 	0x001f,  0x0080,	/*CC chsel strength*/
 	0x0020,  0x0000,	/*CC lut r	 0*/
@@ -488,8 +488,8 @@ static const unsigned short tune_movie_gallery[] = {
 	0x00e8,  0x00ff,	/*SCR BgYg*/
 	0x00e9,  0xff00,	/*SCR BbYb*/
 	0x00ea,  0x00ff,	/*SCR KrWr*/
-	0x00eb,  0x00f6,	/*SCR KgWg*/
-	0x00ec,  0x00e5,	/*SCR KbWb*/
+	0x00eb,  0x00fa,	/*SCR KgWg*/
+	0x00ec,  0x00f3,	/*SCR KbWb*/
 	0x0000,  0x0001,	/*BANK 1*/
 	0x001f,  0x0080,	/*CC chsel strength*/
 	0x0020,  0x0000,	/*CC lut r	 0*/
@@ -892,8 +892,8 @@ static const unsigned short tune_movie_ui_cabc[] = {
 	0x00e8,  0x00ff,	/*SCR BgYg*/
 	0x00e9,  0xff00,	/*SCR BbYb*/
 	0x00ea,  0x00ff,	/*SCR KrWr*/
-	0x00eb,  0x00f6,	/*SCR KgWg*/
-	0x00ec,  0x00e5,	/*SCR KbWb*/
+	0x00eb,  0x00fa,	/*SCR KgWg*/
+	0x00ec,  0x00f3,	/*SCR KbWb*/
 	0x0000,  0x0001,	/*BANK 1*/
 	0x001f,  0x0080,	/*CC chsel strength*/
 	0x0020,  0x0000,	/*CC lut r	 0*/
@@ -938,8 +938,8 @@ static const unsigned short tune_movie_video_cabc[] = {
 	0x00e8,  0x00ff,	/*SCR BgYg*/
 	0x00e9,  0xff00,	/*SCR BbYb*/
 	0x00ea,  0x00ff,	/*SCR KrWr*/
-	0x00eb,  0x00f6,	/*SCR KgWg*/
-	0x00ec,  0x00e5,	/*SCR KbWb*/
+	0x00eb,  0x00fa,	/*SCR KgWg*/
+	0x00ec,  0x00f3,	/*SCR KbWb*/
 	0x0000,  0x0001,	/*BANK 1*/
 	0x001f,  0x0080,	/*CC chsel strength*/
 	0x0020,  0x0000,	/*CC lut r	 0*/
@@ -974,8 +974,8 @@ static const unsigned short tune_movie_gallery_cabc[] = {
 	0x00e8,  0x00ff,	/*SCR BgYg*/
 	0x00e9,  0xff00,	/*SCR BbYb*/
 	0x00ea,  0x00ff,	/*SCR KrWr*/
-	0x00eb,  0x00f6,	/*SCR KgWg*/
-	0x00ec,  0x00e5,	/*SCR KbWb*/
+	0x00eb,  0x00fa,	/*SCR KgWg*/
+	0x00ec,  0x00f3,	/*SCR KbWb*/
 	0x0000,  0x0001,	/*BANK 1*/
 	0x001f,  0x0080,	/*CC chsel strength*/
 	0x0020,  0x0000,	/*CC lut r	 0*/
@@ -1150,7 +1150,7 @@ static const unsigned short tune_cold_outdoor_cabc[] = {
 };
 
 
-struct mdnie_tuning_info etc_table[CABC_MAX][OUTDOOR_MAX][TONE_MAX] = {
+struct mdnie_tunning_info etc_table[CABC_MAX][OUTDOOR_MAX][TONE_MAX] = {
 	{
 		{
 			{"NORMAL",		NULL},
@@ -1178,7 +1178,7 @@ struct mdnie_tuning_info etc_table[CABC_MAX][OUTDOOR_MAX][TONE_MAX] = {
 };
 
 
-struct mdnie_tuning_info_cabc tuning_table[CABC_MAX][MODE_MAX][SCENARIO_MAX] = {
+struct mdnie_tunning_info_cabc tunning_table[CABC_MAX][MODE_MAX][SCENARIO_MAX] = {
 {
 	{
 		{"DYNAMIC_UI",		tune_dynamic_ui,			0},
@@ -1241,7 +1241,7 @@ struct mdnie_tuning_info_cabc tuning_table[CABC_MAX][MODE_MAX][SCENARIO_MAX] = {
 },
 };
 
-struct mdnie_tuning_info camera_table[OUTDOOR_MAX] = {
+struct mdnie_tunning_info camera_table[OUTDOOR_MAX] = {
 	{"CAMERA",		tune_camera},
 	{"CAMERA_OUTDOOR",	tune_camera_outdoor},
 };
