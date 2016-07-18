@@ -357,8 +357,7 @@ static int register_wlan_pdev(struct platform_device *pdev)
 	return 0;
 }
 
-#define WLAN_HOST_WAKE
-#ifdef WLAN_HOST_WAKE
+#ifdef CONFIG_HAS_WAKELOCK
 struct wlansleep_info {
 	unsigned host_wake;
 	unsigned host_wake_irq;
@@ -426,7 +425,7 @@ static void wlan_host_wake_exit(void)
 	wake_lock_destroy(&wsi->wake_lock);
 	kfree(wsi);
 }
-#endif /* WLAN_HOST_WAKE */
+#endif /* CONFIG_HAS_WAKELOCK */
 
 static void config_wlan_gpio(void)
 {
@@ -479,7 +478,7 @@ static void config_wlan_gpio(void)
 }
 
 void
-wlan_setup_power(int on, int detect)
+wlan_setup_power(int on)
 {
 	printk(KERN_ERR "ATHR - %s %s --enter\n", __func__, on ? "on" : "off");
 
@@ -495,14 +494,14 @@ wlan_setup_power(int on, int detect)
 		mdelay(30);
 		gpio_direction_output(GPIO_WLAN_nRST, 1);
 
-#ifdef WLAN_HOST_WAKE
+#ifdef CONFIG_HAS_WAKELOCK
 		wlan_host_wake_init();
-#endif /* WLAN_HOST_WAKE */
+#endif /* CONFIG_HAS_WAKELOCK */
 
 	} else {
-#ifdef WLAN_HOST_WAKE
+#ifdef CONFIG_HAS_WAKELOCK
 		wlan_host_wake_exit();
-#endif /* WLAN_HOST_WAKE */
+#endif /* CONFIG_HAS_WAKELOCK */
 
 		gpio_direction_output(GPIO_WLAN_nRST, 0);
 		if (system_rev >= 4)
@@ -526,12 +525,10 @@ wlan_setup_power(int on, int detect)
 			, GPIO_WLAN_nRST, gpio_get_value(GPIO_WLAN_nRST));
 	}
 
-	if (detect) {
-		if (wlan_status_notify_cb)
-			wlan_status_notify_cb(wlan_devid, on);
-		else
-			printk(KERN_ERR "ATHR - WLAN: No notify available\n");
-	}
+	if (wlan_status_notify_cb)
+		wlan_status_notify_cb(wlan_devid, on);
+	else
+		printk(KERN_ERR "ATHR - WLAN: No notify available\n");
 }
 EXPORT_SYMBOL(wlan_setup_power);
 
@@ -2198,7 +2195,9 @@ static struct s3c_sdhci_platdata exynos4_hsmmc3_pdata __initdata = {
 	.cd_type = S3C_SDHCI_CD_EXTERNAL,
 	.clk_type = S3C_SDHCI_CLK_DIV_EXTERNAL,
 	.host_caps = MMC_CAP_4_BIT_DATA,
+#if defined(CONFIG_MACH_P8LTE)
 	.pm_flags = S3C_SDHCI_PM_IGNORE_SUSPEND_RESUME,
+#endif
 #ifdef CONFIG_MACH_PX
 	.ext_cd_init = register_wlan_status_notify,
 	.ext_pdev = register_wlan_pdev
@@ -3048,16 +3047,16 @@ static struct mpu3050_platform_data mpu3050_pdata = {
 	 * So X & Y are swapped and Y is negated.
 	 */
 #if defined(CONFIG_MACH_P8)
-	.orientation = {1, 0, 0,
-			0, -1, 0,
+	.orientation = {0, 1, 0,
+			1, 0, 0,
 			0, 0, -1},
 #elif defined(CONFIG_MACH_P8LTE)
 	.orientation = {0, -1, 0,
 			1, 0, 0,
 			0, 0, 1},
 #elif defined(CONFIG_MACH_P2)
-	.orientation = {1, 0, 0,
-			0, -1, 0,
+	.orientation = {0, 1, 0,
+			1, 0, 0,
 			0, 0, -1},
 #elif defined(CONFIG_MACH_P4)
 	.orientation = {1 , 0, 0,
@@ -3080,16 +3079,16 @@ static struct mpu3050_platform_data mpu3050_pdata = {
 		 * So X & Y are both negated.
 		 */
 #if defined(CONFIG_MACH_P8)
-		.orientation = {1, 0, 0,
-				0, -1, 0,
+		.orientation = {0, 1, 0,
+				1, 0, 0,
 				0, 0, -1},
 #elif defined(CONFIG_MACH_P8LTE)
 		.orientation = {0, 1, 0,
 				-1, 0, 0,
 				0, 0, 1},
 #elif defined(CONFIG_MACH_P2)
-		.orientation = {1, 0, 0,
-				0, -1, 0,
+		.orientation = {0, 1, 0,
+				1, 0, 0,
 				0, 0, -1},
 #elif defined(CONFIG_MACH_P4)
 		.orientation = {0, -1, 0,
@@ -3112,8 +3111,8 @@ static struct mpu3050_platform_data mpu3050_pdata = {
 		 * 90 degrees clockwise from natural orientation.
 		 * So X & Y are swapped and Y & Z are negated.
 		 */
-		.orientation = {1, 0, 0,
-				0, 1, 0,
+		.orientation = {0, -1, 0,
+				1, 0, 0,
 				0, 0, 1},
 	},
 
@@ -4326,7 +4325,7 @@ static u8 t8_config_e[] = { GEN_ACQUISITIONCONFIG_T8,
 };
 
 static u8 t9_config_e[] = { TOUCH_MULTITOUCHSCREEN_T9,
-	139, 0, 0, 24, 32, 0, 176, MXT768E_THRESHOLD_BATT, 2, 2,
+	139, 0, 0, 24, 32, 0, 176, MXT768E_THRESHOLD_BATT, 2, 1,
 	10, 10, 1, 13, MXT768E_MAX_MT_FINGERS, 20, 40, 20, 31, 3,
 	255, 4, MXT768E_XLOCLIP_BATT, MXT768E_XHICLIP_BATT,
 	MXT768E_YLOCLIP_BATT, MXT768E_YHICLIP_BATT,
@@ -4443,9 +4442,9 @@ static struct mxt_platform_data mxt_data = {
 	.gpio_read_done = GPIO_TSP_INT_18V,
 	.config = mxt768e_config,
 	.min_x = 0,
-	.max_x = 799,
+	.max_x = 1279,
 	.min_y = 0,
-	.max_y = 1279,
+	.max_y = 799,
 	.min_z = 0,
 	.max_z = 255,
 	.min_w = 0,
@@ -6476,11 +6475,11 @@ static int check_sec_keyboard_dock(bool attached)
 
 /* call 30pin func. from sec_keyboard */
 static struct sec_30pin_callbacks *s30pin_callbacks;
-static int noti_sec_univ_kbd_dock(unsigned int code)
+static int noti_sec_univ_kbd_dock(bool attached)
 {
 	if (s30pin_callbacks && s30pin_callbacks->noti_univ_kdb_dock)
 		return s30pin_callbacks->
-			noti_univ_kdb_dock(s30pin_callbacks, code);
+			noti_univ_kdb_dock(s30pin_callbacks, attached);
 	return 0;
 }
 
@@ -7177,12 +7176,14 @@ static void __init exynos4_reserve_mem(void)
 			.start = 0,
 		},
 #endif
+#ifndef CONFIG_ION_EXYNOS_CONTIGHEAP_SIZE
 #ifdef CONFIG_VIDEO_SAMSUNG_MEMSIZE_FIMC1
 		{
 			.name = "fimc1",
 			.size = CONFIG_VIDEO_SAMSUNG_MEMSIZE_FIMC1 * SZ_1K,
 			.start = 0,
 		},
+#endif
 #endif
 #ifdef CONFIG_VIDEO_SAMSUNG_MEMSIZE_FIMC2
 		{
@@ -7197,6 +7198,12 @@ static void __init exynos4_reserve_mem(void)
 			.size = CONFIG_VIDEO_SAMSUNG_MEMSIZE_FIMC3 * SZ_1K,
 			.start = 0,
 		},
+#endif
+#ifdef CONFIG_ION_EXYNOS_CONTIGHEAP_SIZE
+                {
+                        .name   = "ion",
+                        .size   = CONFIG_ION_EXYNOS_CONTIGHEAP_SIZE * SZ_1K,
+                },
 #endif
 #ifdef CONFIG_VIDEO_SAMSUNG_MEMSIZE_MFC1
 		{
@@ -7266,6 +7273,9 @@ static void __init exynos4_reserve_mem(void)
 		"s3cfb.0=fimd;exynos4-fb.0=fimd;"
 		"s3c-fimc.0=fimc0;s3c-fimc.1=fimc1;s3c-fimc.2=fimc2;"
 		"exynos4210-fimc.0=fimc0;exynos4210-fimc.1=fimc1;exynos4210-fimc.2=fimc2;exynos4210-fimc3=fimc3;"
+#ifdef CONFIG_ION_EXYNOS
+		"ion-exynos=ion;"
+#endif
 #ifdef CONFIG_VIDEO_MFC5X
 		"s3c-mfc/A=mfc0,mfc-secure;"
 		"s3c-mfc/B=mfc1,mfc-normal;"

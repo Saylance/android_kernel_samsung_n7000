@@ -70,11 +70,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"ES", "ES", 1},
 	{"FI", "FI", 1},
 	{"FR", "FR", 1},
-#ifdef BCM4335_CHIP
-	{"GB", "GB", 6},
-#else
 	{"GB", "GB", 1},
-#endif
 	{"GR", "GR", 1},
 	{"HR", "HR", 1},
 	{"HU", "HU", 1},
@@ -88,9 +84,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"LT", "LT", 1},
 	{"LU", "LU", 1},
 	{"LV", "LV", 1},
-#ifndef BCM4330_CHIP
 	{"MA", "MA", 1},
-#endif
 	{"MT", "MT", 1},
 	{"MX", "MX", 1},
 	{"NL", "NL", 1},
@@ -102,9 +96,8 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"SE", "SE", 1},
 	{"SI", "SI", 1},
 	{"SK", "SK", 1},
-#ifndef BCM4330_CHIP
 	{"TR", "TR", 7},
-#endif
+	{"UA", "UA", 2},
 	{"TW", "TW", 2},
 	{"IR", "XZ", 11},	/* Universal if Country code is IRAN, (ISLAMIC REPUBLIC OF) */
 	{"SD", "XZ", 11},	/* Universal if Country code is SUDAN */
@@ -115,50 +108,14 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"MH", "XZ", 11},	/* Universal if Country code is MARSHALL ISLANDS */
 	{"PK", "XZ", 11},	/* Universal if Country code is PAKISTAN */
 #ifdef BCM4334_CHIP
-	{"RU", "RU", 13},
+	{"RU", "RU", 5},
 	{"SG", "SG", 4},
-	{"US", "US", 46},
-	{"UA", "UA", 8},
-	{"CO", "CO", 4},
-	{"ID", "ID", 1},
-	{"LA", "LA", 1},
-	{"LB", "LB", 2},
-	{"VN", "VN", 4},
+	{"US", "US", 46}
 #endif
 #ifdef BCM4330_CHIP
-	{"RU", "RU", 13},
-	{"US", "US", 5},
-	{"UA", "UY", 0},
-	{"AD", "AL", 0},
-	{"CX", "AU", 2},
-	{"GE", "GB", 1},
-	{"ID", "MW", 0},
-	{"KI", "AU", 2},
-	{"NP", "SA", 0},
-	{"WS", "SA", 0},
-	{"LR", "BR", 0},
-	{"ZM", "IN", 0},
-	{"AN", "AG", 0},
-	{"AI", "AS", 0},
-	{"BM", "AS", 0},
-	{"DZ", "IL", 0},
-	{"LC", "AG", 0},
-	{"MF", "BY", 0},
-	{"GY", "CU", 0},
-	{"LA", "GB", 1},
-	{"LB", "BR", 0},
-	{"MA", "IL", 0},
-	{"MO", "BD", 0},
-	{"MW", "BD", 0},
-	{"QA", "BD", 0},
-	{"TR", "GB", 1},
-	{"TZ", "BF", 0},
-	{"VN", "BR", 0},
-	{"JO", "XZ", 1},
-	{"PG", "XZ", 1},
-	{"SA", "XZ", 1},
+	{"RU", "RU", 1},
+	{"US", "US", 5}
 #endif
-	{"UA", "UA", 2}
 };
 
 /* Customized Locale convertor
@@ -317,7 +274,7 @@ int dhd_write_rdwr_macaddr(struct ether_addr *mac)
 		mac->octet[3], mac->octet[4], mac->octet[5]);
 
 	/* /data/.mac.info will be created */
-	fp_mac = filp_open(filepath_efs, O_RDWR | O_CREAT, 0666);
+	fp_mac = filp_open(filepath_data, O_RDWR | O_CREAT, 0666);
 	if (IS_ERR(fp_mac)) {
 		DHD_ERROR(("[WIFI] %s: File open error\n", filepath_data));
 		return -1;
@@ -339,7 +296,7 @@ int dhd_write_rdwr_macaddr(struct ether_addr *mac)
 		filp_close(fp_mac, NULL);
 	}
 	/* /efs/wifi/.mac.info will be created */
-	fp_mac = filp_open(filepath_data, O_RDWR | O_CREAT, 0666);
+	fp_mac = filp_open(filepath_efs, O_RDWR | O_CREAT, 0666);
 	if (IS_ERR(fp_mac)) {
 		DHD_ERROR(("[WIFI] %s: File open error\n", filepath_efs));
 		return -1;
@@ -378,7 +335,7 @@ int dhd_check_rdwr_macaddr(struct dhd_info *dhd, dhd_pub_t *dhdp,
 #ifdef CONFIG_TARGET_LOCALE_NA
 	char *nvfilepath       = "/data/misc/wifi/.nvmac.info";
 #else
-	char *nvfilepath = "/efs/wifi/.nvmac.info";
+	char *nvfilepath = NVMACINFO;
 #endif
 	char cur_mac[128]   = {0};
 	char dummy_mac[ETHER_ADDR_LEN] = {0x00, 0x90, 0x4C, 0xC5, 0x12, 0x38};
@@ -389,6 +346,11 @@ int dhd_check_rdwr_macaddr(struct dhd_info *dhd, dhd_pub_t *dhdp,
 
 	fp_nvm = filp_open(nvfilepath, O_RDONLY, 0);
 	if (IS_ERR(fp_nvm)) { /* file does not exist */
+
+		/* Create the .nvmac.info */
+		fp_nvm = filp_open(nvfilepath, O_RDWR | O_CREAT, 0666);
+		if (!IS_ERR(fp_nvm))
+			filp_close(fp_nvm, NULL);
 
 		/* read MAC Address */
 		strcpy(cur_mac, "cur_etheraddr");

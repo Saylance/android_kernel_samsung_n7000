@@ -1374,12 +1374,8 @@ descriptor_error:
 	if (hdev->speed == USB_SPEED_HIGH)
 		highspeed_hubs++;
 
-	if (hub_configure(hub, endpoint) >= 0) {
-#if defined(CONFIG_LINK_DEVICE_HSIC) || defined(CONFIG_MDM_HSIC_PM)
-		usb_detect_quirks(hdev);
-#endif
+	if (hub_configure(hub, endpoint) >= 0)
 		return 0;
-	}
 
 	hub_disconnect (intf);
 	return -ENODEV;
@@ -3246,15 +3242,8 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
 			 * remote wakeup event.
 			 */
 			status = usb_remote_wakeup(udev);
-#if defined(CONFIG_LINK_DEVICE_HSIC)
-		} else if (udev->state == USB_STATE_CONFIGURED &&
-			udev->persist_enabled &&
-			udev->dev.power.runtime_status == RPM_RESUMING) {
-			/* usb 1-2 runtime resume was called by host wakeup
-			 * isr routine . Nothing to do */
-			status = 0;
 #endif
-#endif
+
 		} else {
 			status = -ENODEV;	/* Don't resuscitate */
 		}
@@ -3267,11 +3256,8 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
 	}
 
 	/* Disconnect any existing devices under this port */
-	if (udev) {
-		pr_info("%s: %d: portstatus=0x%x, udev->state=0x%x, status=%d\n"
-			, __func__, __LINE__, portstatus, udev->state, status);
+	if (udev)
 		usb_disconnect(&hdev->children[port1-1]);
-	}
 	clear_bit(port1, hub->change_bits);
 
 	/* We can forget about a "removed" device when there's a physical

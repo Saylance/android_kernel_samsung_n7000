@@ -30,8 +30,6 @@ spinlock_t irq_lock;
 int irq_lock_flag;
 
 int sprd_boot_done;
-int sprd_boot_done_2;
-
 extern int spi_thread_restart(void);
 
 static int sprd8803_on(struct modem_ctl *mc)
@@ -79,7 +77,6 @@ static int sprd8803_off(struct modem_ctl *mc)
 	}
 
 	gpio_set_value(mc->gpio_cp_on, 0);
-	gpio_set_value(mc->gpio_pda_active, 0);
 
 	spin_lock(&irq_lock);
 	if (irq_lock_flag) {
@@ -149,26 +146,13 @@ static irqreturn_t phone_active_irq_handler(int irq, void *_mc)
 		goto exit;
 	}
 
+	if (!sprd_boot_done)
+		goto exit;
 
 	phone_active_value = gpio_get_value(mc->gpio_phone_active);
 	cp_dump_value = gpio_get_value(mc->gpio_cp_dump_int);
 
-	if (!sprd_boot_done)
-	{
-		pr_err("PA EVENT1 : pa=%d, cp_dump=%d\n",
-				phone_active_value, cp_dump_value);
-		goto exit;
-
-	}
-	if( (sprd_boot_done_2==0)&&(phone_active_value==0))
-	{
-		pr_err("PA EVENT2 : pa=%d, cp_dump=%d\n",
-				phone_active_value, cp_dump_value);
-		goto exit;
-
-	}
-
-	pr_err("PA EVENT3 : pa=%d, cp_dump=%d\n",
+	pr_err("PA EVENT : pa=%d, cp_dump=%d\n",
 				phone_active_value, cp_dump_value);
 
 	if (phone_active_value)

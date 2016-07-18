@@ -217,7 +217,7 @@ static struct wm8994_drc_cfg drc_value[] = {
 		.regs[4] = 0x0000,
 	},
 #endif
-#if defined(CONFIG_MACH_P4NOTE) || defined(CONFIG_MACH_KONA)
+#if defined(CONFIG_MACH_P4NOTE)
 {
 		.name = "cam rec DRC",
 		.regs[0] = 0x019B,
@@ -265,8 +265,6 @@ static struct wm8994_pdata wm1811_pdata = {
 	.micbias = {0x22, 0x22},
 #elif defined(CONFIG_MACH_C1_USA_ATT)
 	.micbias = {0x2f, 0x29},
-#elif defined(CONFIG_MACH_GC1)
-	.micbias = {0x2f, 0x2b},
 #else
 	.micbias = {0x2f, 0x27},
 #endif
@@ -287,8 +285,7 @@ static struct wm8994_pdata wm1811_pdata = {
 	defined(CONFIG_MACH_C1_KOR_KT) || defined(CONFIG_MACH_C1_KOR_LGT) || \
 	defined(CONFIG_MACH_P4NOTE) || defined(CONFIG_MACH_GC1) || \
 	defined(CONFIG_MACH_C1_USA_ATT) || defined(CONFIG_MACH_T0) || \
-	defined(CONFIG_MACH_M3) || defined(CONFIG_MACH_BAFFIN) || \
-	defined(CONFIG_MACH_KONA)
+	defined(CONFIG_MACH_M3) || defined(CONFIG_MACH_BAFFIN)
 	.lineout2fb = 0,
 #else
 	.lineout2fb = 1,
@@ -346,16 +343,11 @@ struct platform_device s3c_device_fm34 = {
 	defined(CONFIG_FM_SI4705_MODULE)
 static void fmradio_power(int on)
 {
-	int err;
 #if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_M0_CTC)
 	gpio_set_value(si47xx_data.gpio_sw, GPIO_LEVEL_HIGH);
 #endif
 	if (on) {
-		err = gpio_request(GPIO_FM_INT, "GPC1");
-		if (err) {
-			pr_err(KERN_ERR "GPIO_FM_INT GPIO set error!\n");
-			return;
-		}
+		gpio_request(GPIO_FM_INT, "GPC1");
 		gpio_direction_output(GPIO_FM_INT, 1);
 		gpio_set_value(si47xx_data.gpio_rst, GPIO_LEVEL_LOW);
 		gpio_set_value(GPIO_FM_INT, GPIO_LEVEL_LOW);
@@ -480,7 +472,7 @@ void __init midas_sound_init(void)
 	i2c_register_board_info(I2C_NUM_CODEC, i2c_wm1811,
 					ARRAY_SIZE(i2c_wm1811));
 #else /* for CONFIG_ARCH_EXYNOS4 */
-#if defined(CONFIG_MACH_P4NOTE)
+#ifdef CONFIG_MACH_P4NOTE
 	i2c_wm1811[0].irq = 0;
 	SET_PLATDATA_CODEC(NULL);
 	i2c_register_board_info(I2C_NUM_CODEC, i2c_wm1811,
@@ -500,7 +492,7 @@ void __init midas_sound_init(void)
 		i2c_register_board_info(I2C_NUM_CODEC, i2c_wm1811,
 						ARRAY_SIZE(i2c_wm1811));
 #else
-	if (system_rev != 3) {
+	if (system_rev != 3 && system_rev >= 0) {
 		SET_PLATDATA_CODEC(NULL);
 		i2c_register_board_info(I2C_NUM_CODEC, i2c_wm1811,
 						ARRAY_SIZE(i2c_wm1811));

@@ -598,10 +598,6 @@ config SEC_DEV_JACK
 	---help---
 	 This is Earjack detection driver for Samsung devices.
 
-config JACK_RESELECTOR_SUPPORT
-    bool "For samsung jack reselector control"
-    default n
-
 config MUIC_DET_JACK
 	bool "Earjack detection driver using MUIC"
 	default n

@@ -42,11 +42,6 @@ static const struct isx012_framesize isx012_preview_frmsizes[] = {
 	{ PREVIEW_SZ_320x240,	320,  240 },
 	{ PREVIEW_SZ_CIF,	352,  288 },
 	{ PREVIEW_SZ_528x432,	528,  432 },
-#if defined(CONFIG_MACH_P4NOTELTE_KOR_SKT) \
-	|| defined(CONFIG_MACH_P4NOTELTE_KOR_KT) \
-	|| defined(CONFIG_MACH_P4NOTELTE_KOR_LGT) /*For 4G VT call in Domestic*/
-	{ PREVIEW_SZ_VERTICAL_VGA,	480,  640 },
-#endif
 	{ PREVIEW_SZ_VGA,	640,  480 },
 	{ PREVIEW_SZ_D1,	720,  480 },
 	{ PREVIEW_SZ_880x720,	880,  720 },
@@ -189,11 +184,6 @@ static const struct isx012_regs reg_datas = {
 	},
 	.preview_size = {
 		ISX012_REGSET(PREVIEW_SZ_320x240, isx012_320_Preview, 0),
-#if defined(CONFIG_MACH_P4NOTELTE_KOR_SKT) \
-	|| defined(CONFIG_MACH_P4NOTELTE_KOR_KT) \
-	|| defined(CONFIG_MACH_P4NOTELTE_KOR_LGT) /*For 4G VT call in Domestic*/
-		ISX012_REGSET(PREVIEW_SZ_VERTICAL_VGA, isx012_480_Preview, 0),
-#endif
 		ISX012_REGSET(PREVIEW_SZ_VGA, isx012_640_Preview, 0),
 		ISX012_REGSET(PREVIEW_SZ_D1, isx012_720_Preview, 0),
 		ISX012_REGSET(PREVIEW_SZ_XGA, isx012_1024_768_Preview, 0),
@@ -2123,11 +2113,11 @@ static int isx012_do_af(struct v4l2_subdev *sd, u32 touch)
 			break;
 
 		af_dbg("AF state= %d(0x%X)\n", read_value, read_value);
-		msleep_debug(10, false);
+		msleep_debug(30, false);
 	}
 
 	if (unlikely(count >= AF_SEARCH_COUNT)) {
-		cam_warn("warning, AF check timeout. val=0x%X\n\n", read_value);
+		cam_warn("warning, AF check failed. val=0x%X\n\n", read_value);
 		isx012_writeb(sd, REG_INTCLR, 0x10);
 		goto check_fail;
 	}
@@ -2220,13 +2210,6 @@ static int isx012_set_af(struct v4l2_subdev *sd, s32 val)
 	state->focus.start = val;
 
 	if (val == AUTO_FOCUS_ON) {
-		if ((state->runmode != RUNMODE_RUNNING) &&
-		    (state->runmode != RUNMODE_RECORDING)) {
-			cam_err("error, AF can't start, not in preview\n");
-			state->focus.start = AUTO_FOCUS_OFF;
-			return -ESRCH;
-		}
-
 		err = queue_work(state->workqueue, &state->af_work);
 		if (likely(err))
 			state->focus.status = AF_RESULT_DOING;
@@ -3170,12 +3153,11 @@ static int isx012_s_mbus_fmt(struct v4l2_subdev *sd,
 
 		/* for maket app.
 		 * Samsung camera app does not use unmatched ratio.*/
-		if (unlikely(NULL == state->preview.frmsize)) {
-			cam_warn("warning, capture without preview resolution\n");
-		} else if (unlikely(FRM_RATIO(state->preview.frmsize)
+		if (unlikely(FRM_RATIO(state->preview.frmsize)
 		    != FRM_RATIO(state->capture.frmsize))) {
-			cam_warn("warning, capture ratio " \
-				"is different with preview ratio\n");
+			cam_warn("%s: warning, capture ratio " \
+				"is different with preview ratio\n",
+				__func__);
 		}
 	}
 
@@ -3580,6 +3562,20 @@ static int isx012_s_stream(struct v4l2_subdev *sd, int enable)
 
 	return 0;
 }
+
+#if 0 /* DSLIM */
+static int isx012_reset(struct v4l2_subdev *sd, u32 val)
+{
+	struct isx012_state *state = to_state(sd);
+
+	cam_trace("EX\n");
+
+	isx012_return_focus(sd);
+	state->initialized = 0;
+
+	return 0;
+}
+#endif
 
 void isx012_Sensor_Calibration(struct v4l2_subdev *sd)
 {
@@ -3988,8 +3984,8 @@ static int is_sysdev(struct device *dev, void *str)
 	return !strcmp(dev_name(dev), (char *)str) ? 1 : 0;
 }
 
-static ssize_t cam_loglevel_show(struct device *dev,
-			struct device_attribute *attr, char *buf)
+ssize_t cam_loglevel_show(struct device *dev, struct device_attribute *attr,
+			char *buf)
 {
 	char temp_buf[60] = {0,};
 
@@ -4015,9 +4011,8 @@ static ssize_t cam_loglevel_show(struct device *dev,
 	return strlen(buf);
 }
 
-static ssize_t cam_loglevel_store(struct device *dev,
-			struct device_attribute *attr,
-			const char *buf, size_t count)
+ssize_t cam_loglevel_store(struct device *dev, struct device_attribute *attr,
+			 const char *buf, size_t count)
 {
 	printk(KERN_DEBUG "CAM buf=%s, count=%d\n", buf, count);
 

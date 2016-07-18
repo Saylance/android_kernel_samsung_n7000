@@ -1,9 +1,6 @@
 
 obj-$(CONFIG_BATTERY_SAMSUNG)	+= samsung_battery.o	\
-					battery-factory.o	\
-					sec_battery.o	\
-					sec_charger.o	\
-					sec_fuelgauge.o
+					battery-factory.o
 
 obj-$(CONFIG_MAX8997_CHARGER)	+= max8997-charger.o
 
@@ -27,5 +24,4 @@ obj-$(CONFIG_CHARGER_SMB328)	+= smb328_charger.o
 obj-$(CONFIG_CHARGER_SMB347)	+= smb347_charger.o
 obj-$(CONFIG_CHARGER_BQ24190)	+= bq24190_charger.o
 obj-$(CONFIG_CHARGER_BQ24191)	+= bq24190_charger.o
-obj-$(CONFIG_CHARGER_NCP1851)	+= ncp1851_charger.o
 

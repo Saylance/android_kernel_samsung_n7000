@@ -33,18 +33,9 @@
 #endif
 #include <linux/pm_qos_params.h>
 
-#ifdef CONFIG_BUSFREQ_OPP
-#include <mach/busfreq_exynos4.h>
-#endif
 
-#if defined(CONFIG_BUSFREQ_OPP) || defined(CONFIG_BUSFREQ_LOCK_WRAPPER)
-#include <mach/dev.h>
-#endif
 #include <plat/cpu.h>
 
-#if defined(CONFIG_BUSFREQ) || defined(CONFIG_EXYNOS4_CPUFREQ)
-#include <mach/cpufreq.h>
-#endif
 #include <mach/regs-pmu.h>
 
 #include <asm/uaccess.h>
@@ -79,9 +70,6 @@ static struct proc_dir_entry *mfc_proc_entry;
 #define MFC_PROC_ROOT		"mfc"
 #define MFC_PROC_TOTAL_INSTANCE_NUMBER	"total_instance_number"
 
-#ifdef CONFIG_BUSFREQ
-static struct pm_qos_request_list bus_qos_pm_qos_req;
-#endif
 
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 #define MFC_DRM_MAGIC_SIZE	0x10
@@ -215,8 +203,7 @@ static int mfc_open(struct inode *inode, struct file *file)
 
 #ifdef CONFIG_USE_MFC_CMA
 	if (atomic_read(&mfcdev->inst_cnt) == 0) {
-#if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_GC1) \
-	|| defined(CONFIG_MACH_Q1_BD)
+#if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_GC1)
 		size_t size = 0x02800000;
 		mfcdev->cma_vaddr = dma_alloc_coherent(mfcdev->device, size,
 						&mfcdev->cma_dma_addr, 0);
@@ -279,13 +266,6 @@ static int mfc_open(struct inode *inode, struct file *file)
 				printk(KERN_INFO "MFC F/W reloaded successfully (size: %d)\n", mfcdev->fw.info->size);
 			}
 		}
-
-#if defined(CONFIG_BUSFREQ_OPP) || defined(CONFIG_BUSFREQ_LOCK_WRAPPER)
-		dev_lock(mfcdev->bus_dev, mfcdev->device, 133133);
-#endif
-#ifdef CONFIG_BUSFREQ
-		pm_qos_add_request(&bus_qos_pm_qos_req, PM_QOS_BUS_QOS, 1);
-#endif
 
 		ret = mfc_power_on();
 		if (ret < 0) {
@@ -417,8 +397,7 @@ err_inst_cnt:
 err_start_hw:
 	if (atomic_read(&mfcdev->inst_cnt) == 0) {
 #ifdef CONFIG_USE_MFC_CMA
-#if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_GC1) \
-	|| defined(CONFIG_MACH_Q1_BD)
+#if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_GC1)
 		size_t size = 0x02800000;
 		dma_free_coherent(mfcdev->device, size, mfcdev->cma_vaddr,
 							mfcdev->cma_dma_addr);
@@ -433,9 +412,6 @@ err_start_hw:
 	}
 
 err_pwr_enable:
-#if defined(CONFIG_BUSFREQ_OPP) || defined(CONFIG_BUSFREQ_LOCK_WRAPPER)
-	dev_unlock(mfcdev->bus_dev, mfcdev->device);
-#endif
 
 err_fw_state:
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
@@ -478,65 +454,6 @@ static int mfc_release(struct inode *inode, struct file *file)
 	}
 #endif
 
-#if defined(CONFIG_BUSFREQ)
-	/* Release MFC & Bus Frequency lock for High resolution */
-	if (mfc_ctx->busfreq_flag == true) {
-		atomic_dec(&dev->busfreq_lock_cnt);
-		mfc_ctx->busfreq_flag = false;
-		if (atomic_read(&dev->busfreq_lock_cnt) == 0) {
-			/* release Freq lock back to normal */
-			exynos4_busfreq_lock_free(DVFS_LOCK_ID_MFC);
-			mfc_dbg("[%s] Bus Freq lock Released Normal!\n", __func__);
-		}
-	}
-#endif
-
-#if defined(CONFIG_MACH_GC1) && defined(CONFIG_EXYNOS4_CPUFREQ)
-	/* Release MFC & CPU Frequency lock for High resolution */
-	if (mfc_ctx->cpufreq_flag == true) {
-		atomic_dec(&dev->cpufreq_lock_cnt);
-		mfc_ctx->cpufreq_flag = false;
-		if (atomic_read(&dev->cpufreq_lock_cnt) == 0) {
-			/* release Freq lock back to normal */
-			exynos_cpufreq_lock_free(DVFS_LOCK_ID_MFC);
-			mfc_dbg("[%s] CPU Freq lock Released Normal!\n", __func__);
-		}
-	}
-#endif
-
-#if defined(CONFIG_CPU_EXYNOS4210) && defined(CONFIG_EXYNOS4_CPUFREQ)
-	/* Release MFC & CPU Frequency lock for High resolution */
-	if (mfc_ctx->cpufreq_flag == true) {
-		atomic_dec(&dev->cpufreq_lock_cnt);
-		mfc_ctx->cpufreq_flag = false;
-		if (atomic_read(&dev->cpufreq_lock_cnt) == 0) {
-			/* release Freq lock back to normal */
-			exynos_cpufreq_lock_free(DVFS_LOCK_ID_MFC);
-			mfc_dbg("[%s] CPU Freq lock Released Normal!\n", __func__);
-		}
-	}
-#endif
-
-#ifdef CONFIG_BUSFREQ_OPP
-	if (mfc_ctx->dmcthreshold_flag == true) {
-		atomic_dec(&dev->dmcthreshold_lock_cnt);
-		mfc_ctx->dmcthreshold_flag = false;
-		if (atomic_read(&dev->dmcthreshold_lock_cnt) == 0) {
-			mfc_info("[%s] Restore dmc_max_threshold\n", __func__);
-			if (soc_is_exynos4212()) {
-				dmc_max_threshold =
-					EXYNOS4212_DMC_MAX_THRESHOLD;
-			} else if (soc_is_exynos4412()) {
-				dmc_max_threshold =
-					EXYNOS4412_DMC_MAX_THRESHOLD;
-			} else {
-				pr_err("Unsupported model.\n");
-				return -EINVAL;
-			}
-		}
-	}
-#endif
-
 #ifdef CONFIG_EXYNOS_CONTENT_PATH_PROTECTION
 	if (mfc_ctx->drm_flag) {
 		mfc_set_buf_alloc_scheme(MBS_FIRST_FIT);
@@ -553,12 +470,7 @@ static int mfc_release(struct inode *inode, struct file *file)
 	mfc_destroy_inst(mfc_ctx);
 
 	if (atomic_read(&dev->inst_cnt) == 0) {
-#if defined(CONFIG_BUSFREQ_OPP) || defined(CONFIG_BUSFREQ_LOCK_WRAPPER)
-		dev_unlock(mfcdev->bus_dev, mfcdev->device);
-#endif
-#ifdef CONFIG_BUSFREQ
-		pm_qos_remove_request(&bus_qos_pm_qos_req);
-#endif
+
 #if SUPPORT_SLICE_ENCODING
 		dev->slice_encoding_flag = 0;
 		dev->slice_sys = 0;
@@ -595,8 +507,7 @@ err_pwr_disable:
 
 #ifdef CONFIG_USE_MFC_CMA
 	if (atomic_read(&mfcdev->inst_cnt) == 0) {
-#if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_GC1) \
-	|| defined(CONFIG_MACH_Q1_BD)
+#if defined(CONFIG_MACH_M0) || defined(CONFIG_MACH_GC1)
 		size_t size = 0x02800000;
 		dma_free_coherent(mfcdev->device, size, mfcdev->cma_vaddr,
 					mfcdev->cma_dma_addr);
@@ -1369,7 +1280,7 @@ static int mfc_open_with_retry(struct inode *inode, struct file *file)
 
 	ret = mfc_open(inode, file);
 
-	while (ret == -ENOMEM && i++ < 5) {
+	while (ret == -ENOMEM && i++ < 3) {
 		msleep(1000);
 		ret = mfc_open(inode, file);
 	}
@@ -1466,16 +1377,6 @@ static int __devinit mfc_probe(struct platform_device *pdev)
 	init_waitqueue_head(&mfcdev->wait_frame);
 #endif
 	atomic_set(&mfcdev->inst_cnt, 0);
-#if defined(CONFIG_BUSFREQ)
-	atomic_set(&mfcdev->busfreq_lock_cnt, 0);
-#endif
-#if defined(CONFIG_CPU_EXYNOS4210) && defined(CONFIG_EXYNOS4_CPUFREQ)
-	atomic_set(&mfcdev->cpufreq_lock_cnt, 0);
-	mfcdev->cpufreq_level = 0;
-#endif
-#ifdef CONFIG_BUSFREQ_OPP
-	atomic_set(&mfcdev->dmcthreshold_lock_cnt, 0);
-#endif
 	mfcdev->device = &pdev->dev;
 #if SUPPORT_SLICE_ENCODING
 	mfcdev->slice_encoding_flag = 0;
@@ -1575,10 +1476,6 @@ static int __devinit mfc_probe(struct platform_device *pdev)
 	}
 #endif
 
-#if defined(CONFIG_BUSFREQ_OPP) || defined(CONFIG_BUSFREQ_LOCK_WRAPPER)
-	/* To lock bus frequency in OPP mode */
-	mfcdev->bus_dev = dev_get("exynos-busfreq");
-#endif
 	/*
 	 * initialize buffer manager
 	 */

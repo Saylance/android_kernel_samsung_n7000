@@ -402,49 +402,9 @@ static struct cm3663_platform_data cm3663_pdata = {
 #endif
 
 #if defined(CONFIG_SENSORS_GP2A)
-static unsigned long gp2a_get_threshold(u8 *thesh_diff)
-{
-	u8 threshold = 0x09;
-
-	if (thesh_diff)
-		*thesh_diff = 1;
-
-#if defined(CONFIG_MACH_BAFFIN_KOR_SKT) || defined(CONFIG_MACH_BAFFIN_KOR_KT)
-	if (system_rev > 4)
-		threshold = 0x06;
-	else
-		threshold = 0x07;
-	if (thesh_diff)
-		*thesh_diff = 2;
-#elif defined(CONFIG_MACH_BAFFIN_KOR_LGT)
-	if (system_rev > 5)
-		threshold = 0x06;
-	else
-		threshold = 0x07;
-	if (thesh_diff)
-		*thesh_diff = 2;
-#elif defined(CONFIG_MACH_SUPERIOR_KOR_SKT)
-	threshold = 0x07;
-	if (thesh_diff)
-		*thesh_diff = 2;
-#elif defined(CONFIG_MACH_M3_USA_TMO)
-	threshold = 0x07;
-	if (thesh_diff)
-		*thesh_diff = 2;
-#endif
-
-	if (thesh_diff)
-		pr_info("%s, threshold low = 0x%x, high = 0x%x\n",
-			__func__, threshold, (threshold + *thesh_diff));
-	else
-		pr_info("%s, threshold = 0x%x\n", __func__, threshold);
-	return threshold;
-}
-
 static struct gp2a_platform_data gp2a_pdata = {
 	.gp2a_led_on	= proximity_leda_on,
 	.p_out = GPIO_PS_ALS_INT,
-	.gp2a_get_threshold = gp2a_get_threshold,
 };
 
 static struct platform_device opt_gp2a = {
@@ -565,21 +525,8 @@ static int ak8963c_gpio_init(void)
 }
 #endif
 #ifdef CONFIG_SENSORS_AK8963
-
-static char ak_get_layout(void)
-{
-	char layout = 0;
-#ifdef CONFIG_MACH_BAFFIN
-	if (system_rev >= 1)
-		layout = 3;
-	else
-		layout = 4;
-#endif
-	return layout;
-}
-
 static struct akm8963_platform_data akm8963_pdata = {
-	.layout = ak_get_layout,
+	.layout = 4,
 	.outbit = 1,
 	.gpio_RST = GPIO_MSENSE_RST_N,
 };
